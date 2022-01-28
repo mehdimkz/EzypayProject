@@ -1,0 +1,120 @@
+#The transformation codes for creatin each table:
+#------Table: Platform 1------------
+let
+  Source = Excel.Workbook(Web.Contents("https://jlyon2-my.sharepoint.com/personal/myti_pinkymelo_com/Documents/DataEngineer_Assessment_Data.xlsx"), null, true),
+  #"Navigation 1" = Source{[Item = "Platform1", Kind = "Sheet"]}[Data],
+  #"Promoted headers" = Table.PromoteHeaders(#"Navigation 1", [PromoteAllScalars = true]),
+  #"Changed column type" = Table.TransformColumnTypes(#"Promoted headers", {{"id", Int64.Type}, {"billingstatus", type text}, {"countrycode", type text}, {"distributionstatus", type text}, {"email", type text}, {"customers", Int64.Type}, {"name", type text}, {"status", type text}, {"tradingname", type text}, {"addressid", Int64.Type}, {"createdon", type datetime}, {"modifiedon", type datetime}}),
+  #"Removed columns" = Table.RemoveColumns(#"Changed column type", {"distributionstatus", "name", "status", "addressid"}),
+  #"Renamed columns" = Table.RenameColumns(#"Removed columns", {{"tradingname", "businessname"}, {"countrycode", "Country_name"}}),
+  #"Removed columns 1" = Table.RemoveColumns(#"Renamed columns", {"id"}),
+  #"Renamed columns 1" = Table.RenameColumns(#"Removed columns 1", {{"Country_name", "country_name"}}),
+  #"Merged queries" = Table.NestedJoin(#"Renamed columns 1", {"billingstatus"}, Dim_BillingStatus, {"billingstatus"}, "Dim_BillingStatus", JoinKind.LeftOuter),
+  #"Expanded Dim_BillingStatus" = Table.ExpandTableColumn(#"Merged queries", "Dim_BillingStatus", {"billingstatus_id"}, {"billingstatus_id"}),
+  #"Merged queries 1" = Table.NestedJoin(#"Expanded Dim_BillingStatus", {"country_name"}, Dim_Country, {"country_name"}, "Dim_Country", JoinKind.LeftOuter),
+  #"Expanded Dim_Country" = Table.ExpandTableColumn(#"Merged queries 1", "Dim_Country", {"country_code"}, {"country_code"}),
+  #"Removed columns 2" = Table.RemoveColumns(#"Expanded Dim_Country", {"billingstatus", "country_name"}),
+  #"Transform columns" = Table.TransformColumnTypes(#"Removed columns 2", {{"billingstatus_id", type text}}),
+  #"Replace errors" = Table.ReplaceErrorValues(#"Transform columns", {{"billingstatus_id", null}})
+in
+  #"Replace errors"
+
+#------Table: Platform 2------------
+let
+  Source = Excel.Workbook(Web.Contents("https://jlyon2-my.sharepoint.com/personal/myti_pinkymelo_com/Documents/DataEngineer_Assessment_Data.xlsx"), null, true),
+  #"Navigation 1" = Source{[Item = "Platform2", Kind = "Sheet"]}[Data],
+  #"Promoted headers" = Table.PromoteHeaders(#"Navigation 1", [PromoteAllScalars = true]),
+  #"Changed column type" = Table.TransformColumnTypes(#"Promoted headers", {{"BusinessID", Int64.Type}, {"BillingStatusID", Int64.Type}, {"CountryCodeID", Int64.Type}, {"Name", type text}, {"TradingName", type text}, {"CompanyOrBusinessNumber", Int64.Type}, {"ContactNumber", Int64.Type}, {"Fax", Int64.Type}, {"CustomerCount", Int64.Type}, {"Email", type text}, {"createdon", type any}, {"modifiedon", type datetime}}),
+  #"Transform columns" = Table.TransformColumnTypes(#"Changed column type", {{"createdon", type text}}),
+  #"Changed column type 1" = Table.TransformColumnTypes(#"Transform columns", {{"createdon", type datetime}}),
+  #"Removed columns" = Table.RemoveColumns(#"Changed column type 1", {"Name", "BusinessID", "CompanyOrBusinessNumber", "Fax", "ContactNumber"}),
+  #"Renamed columns" = Table.RenameColumns(#"Removed columns", {{"CountryCodeID", "country_code"}, {"BillingStatusID", "billingstatus_id"}, {"TradingName", "businessname"}, {"CustomerCount", "customers"}, {"Email", "email"}})
+in
+  #"Renamed columns"
+
+#------Table: Dim_Country------------
+let
+  Source = Csv.Document(Web.Contents("https://jlyon2-my.sharepoint.com/personal/myti_pinkymelo_com/Documents/country-codes.csv"), [Delimiter = ",", Columns = 2, Encoding = 65001, QuoteStyle = QuoteStyle.None]),
+  #"Promoted headers" = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+  #"Changed column type" = Table.TransformColumnTypes(#"Promoted headers", {{"Country_code", Int64.Type}, {"Country_name", type text}}),
+  #"Marked key columns" = Table.AddKey(#"Changed column type", {"Country_code"}, false),
+  #"Renamed columns" = Table.RenameColumns(#"Marked key columns", {{"Country_code", "country_code"}, {"Country_name", "country_name"}})
+in
+  #"Renamed columns"
+
+#------Table: Dim_Date------------
+let
+  Source = Query(#date(2014, 1, 1), #date(2024, 1, 1), ""),
+  #"Removed columns" = Table.RemoveColumns(Source, {"QuarterOfYear"}),
+  #"Reordered columns" = Table.ReorderColumns(#"Removed columns", {"Date", "Year", "MonthOfYear", "DayOfMonth", "FinMonth", "FinYearNumber", "FinYear", "FinQuarterNumber", "FinQuarter", "DateInt", "MonthName", "MonthInCalendar", "QuarterInCalendar", "DayInWeek", "DayOfWeekName", "WeekEndingFriday", "ISOWeekJan4", "ISOWeekYear", "ISOWeekNum", "ISOWeekID", "ISOWeekName", "ISOWeekNameLong", "Period445", "Quarter445"}),
+  #"Removed other columns" = Table.SelectColumns(#"Reordered columns", {"DayOfMonth", "MonthOfYear", "Year", "Date"}),
+  #"Marked key columns" = Table.AddKey(#"Removed other columns", {"Date"}, false),
+  #"Renamed columns" = Table.RenameColumns(#"Marked key columns", {{"DayOfMonth", "Day"}, {"MonthOfYear", "Month"}}),
+  #"Changed column type" = Table.TransformColumnTypes(#"Renamed columns", {{"Date", type datetime}}),
+  #"Transform columns" = Table.TransformColumnTypes(#"Changed column type", {{"Day", type text}, {"Month", type text}, {"Year", type text}}),
+  #"Replace errors" = Table.ReplaceErrorValues(#"Transform columns", {{"Day", null}, {"Month", null}, {"Year", null}}),
+  #"Marked key columns 1" = Table.AddKey(#"Replace errors", {"Date"}, false),
+  #"Changed column type 1" = Table.TransformColumnTypes(#"Marked key columns 1", {{"Date", type datetime}})
+in
+  #"Changed column type 1"
+
+#------Table: Dim_BillingStatus------------
+
+let
+  Source = Excel.Workbook(Web.Contents("https://jlyon2-my.sharepoint.com/personal/myti_pinkymelo_com/Documents/DataEngineer_Assessment_Data.xlsx"), null, true),
+  #"Navigation 1" = Source{[Item = "Platform1", Kind = "Sheet"]}[Data],
+  #"Promoted headers" = Table.PromoteHeaders(#"Navigation 1", [PromoteAllScalars = true]),
+  #"Changed column type" = Table.TransformColumnTypes(#"Promoted headers", {{"id", Int64.Type}, {"billingstatus", type text}, {"countrycode", type text}, {"distributionstatus", type text}, {"email", type text}, {"customers", Int64.Type}, {"name", type text}, {"status", type text}, {"tradingname", type text}, {"addressid", Int64.Type}, {"createdon", type datetime}, {"modifiedon", type datetime}}),
+  #"Removed columns" = Table.RemoveColumns(#"Changed column type", {"distributionstatus", "name", "status", "addressid"}),
+  #"Renamed columns" = Table.RenameColumns(#"Removed columns", {{"tradingname", "businessname"}, {"countrycode", "Country_name"}}),
+  #"Removed columns 1" = Table.RemoveColumns(#"Renamed columns", {"id"}),
+  #"Renamed columns 1" = Table.RenameColumns(#"Removed columns 1", {{"Country_name", "country_name"}}),
+  #"Removed other columns" = Table.SelectColumns(#"Renamed columns 1", {"billingstatus"}),
+  #"Inserted conditional column" = Table.AddColumn(#"Removed other columns", "Custom", each if [billingstatus] = "ACTIVE" then 1 else 2),
+  #"Removed duplicates" = Table.Distinct(#"Inserted conditional column", {"Custom"}),
+  #"Renamed columns 2" = Table.RenameColumns(#"Removed duplicates", {{"Custom", "billingstatus_id"}}),
+  #"Transform columns" = Table.TransformColumnTypes(#"Renamed columns 2", {{"billingstatus_id", type text}}),
+  #"Replace errors" = Table.ReplaceErrorValues(#"Transform columns", {{"billingstatus_id", null}})
+in
+  #"Replace errors"
+
+#------Table: Dim_BillingStatus------------
+let
+  Source = Excel.Workbook(Web.Contents("https://jlyon2-my.sharepoint.com/personal/myti_pinkymelo_com/Documents/DataEngineer_Assessment_Data.xlsx"), null, true),
+  #"Navigation 1" = Source{[Item = "Platform1", Kind = "Sheet"]}[Data],
+  #"Promoted headers" = Table.PromoteHeaders(#"Navigation 1", [PromoteAllScalars = true]),
+  #"Changed column type" = Table.TransformColumnTypes(#"Promoted headers", {{"id", Int64.Type}, {"billingstatus", type text}, {"countrycode", type text}, {"distributionstatus", type text}, {"email", type text}, {"customers", Int64.Type}, {"name", type text}, {"status", type text}, {"tradingname", type text}, {"addressid", Int64.Type}, {"createdon", type datetime}, {"modifiedon", type datetime}}),
+  #"Removed columns" = Table.RemoveColumns(#"Changed column type", {"distributionstatus", "name", "status", "addressid"}),
+  #"Renamed columns" = Table.RenameColumns(#"Removed columns", {{"tradingname", "businessname"}, {"countrycode", "Country_name"}}),
+  #"Removed columns 1" = Table.RemoveColumns(#"Renamed columns", {"id"}),
+  #"Renamed columns 1" = Table.RenameColumns(#"Removed columns 1", {{"Country_name", "country_name"}}),
+  #"Merged queries" = Table.NestedJoin(#"Renamed columns 1", {"billingstatus"}, Dim_BillingStatus, {"billingstatus"}, "Dim_BillingStatus", JoinKind.LeftOuter),
+  #"Expanded Dim_BillingStatus" = Table.ExpandTableColumn(#"Merged queries", "Dim_BillingStatus", {"billingstatus_id"}, {"billingstatus_id"}),
+  #"Merged queries 1" = Table.NestedJoin(#"Expanded Dim_BillingStatus", {"country_name"}, Dim_Country, {"country_name"}, "Dim_Country", JoinKind.LeftOuter),
+  #"Expanded Dim_Country" = Table.ExpandTableColumn(#"Merged queries 1", "Dim_Country", {"country_code"}, {"country_code"}),
+  #"Removed columns 2" = Table.RemoveColumns(#"Expanded Dim_Country", {"billingstatus", "country_name"}),
+  #"Appended query" = Table.Combine({#"Removed columns 2", Platform2}),
+  #"Removed duplicates" = Table.Distinct(#"Appended query", {"businessname"}),
+  #"Reordered columns" = Table.ReorderColumns(#"Removed duplicates", {"businessname", "email", "customers", "createdon", "modifiedon", "billingstatus_id", "country_code"}),
+  #"Added index" = Table.AddIndexColumn(#"Reordered columns", "Index", 1, 1, Int64.Type),
+  #"Reordered columns 1" = Table.ReorderColumns(#"Added index", {"Index", "businessname", "email", "customers", "createdon", "modifiedon", "billingstatus_id", "country_code"}),
+  #"Renamed columns 2" = Table.RenameColumns(#"Reordered columns 1", {{"Index", "business_id"}}),
+  #"Transform columns" = Table.TransformColumnTypes(#"Renamed columns 2", {{"billingstatus_id", type text}}),
+  #"Replace errors" = Table.ReplaceErrorValues(#"Transform columns", {{"billingstatus_id", null}}),
+  #"Removed columns 3" = Table.RemoveColumns(#"Replace errors", {"createdon", "modifiedon", "customers"})
+in
+  #"Removed columns 3"
+
+#------Table: Fact_BusinessCustomers------------
+let
+  Source = Platform1,
+  #"Appended query" = Table.Combine({Source, Platform2}),
+  #"Removed columns" = Table.RemoveColumns(#"Appended query", {"email"}),
+  #"Reordered columns" = Table.ReorderColumns(#"Removed columns", {"businessname", "billingstatus_id", "country_code", "customers", "createdon", "modifiedon"}),
+  #"Removed columns 1" = Table.RemoveColumns(#"Reordered columns", {"billingstatus_id", "country_code"}),
+  #"Changed column type" = Table.TransformColumnTypes(#"Removed columns 1", {{"createdon", type datetime}, {"modifiedon", type datetime}})
+in
+  #"Changed column type"
+
+
+
